@@ -1,14 +1,25 @@
 #!/bin/bash
 
-# 只运行 Xray，不再运行 Hy2，彻底避免端口争抢
-# 将内部监听端口改为 443，匹配瓜云的默认检查
+# 1. 自动生成一组绝对合法的 Reality 密钥对
+KEYS=$(/usr/bin/xray x25519)
+PRIV_KEY=$(echo "$KEYS" | grep "Private key" | awk '{print $3}')
+PUB_KEY=$(echo "$KEYS" | grep "Public key" | awk '{print $3}')
+UUID="ae8f4ad1-c000-4b2a-89a5-71649969242d"
+
+# 2. 将生成的公钥打印到日志，方便你填入客户端
+echo "===================================================="
+echo "您的客户端公钥 (Public Key) 是:"
+echo "$PUB_KEY"
+echo "===================================================="
+
+# 3. 直接生成配置文件 (确保没有变量转义问题)
 cat <<EOF > /etc/xray.json
 {
     "inbounds": [{
         "port": 443,
         "protocol": "vless",
         "settings": {
-            "clients": [{"id": "ae8f4ad1-c000-4b2a-89a5-71649969242d", "flow": "xtls-rprx-vision"}],
+            "clients": [{"id": "$UUID", "flow": "xtls-rprx-vision"}],
             "decryption": "none"
         },
         "streamSettings": {
@@ -19,7 +30,7 @@ cat <<EOF > /etc/xray.json
                 "dest": "www.microsoft.com:443",
                 "xver": 0,
                 "serverNames": ["www.microsoft.com"],
-                "privateKey": "uL8WzX7hK9mP2nJ5rB3vV6cZ9xX4yY1tS7dA0fG3hJ4=",
+                "privateKey": "$PRIV_KEY",
                 "shortIds": ["a1b2c3d4"]
             }
         }
@@ -28,5 +39,6 @@ cat <<EOF > /etc/xray.json
 }
 EOF
 
+# 4. 启动服务
 echo "Starting Xray on Port 443..."
 /usr/bin/xray -c /etc/xray.json
